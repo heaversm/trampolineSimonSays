@@ -7,15 +7,6 @@ Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 int ledBrightness = 30; //0 - 255
 float vibrationThreshold = 4; //above this value, trigger a bounce
 
-/*
-int colorRed[3] = { 255, 0, 0 };
-int colorGreen[3] = { 0, 150, 0 };
-int colorBlue[3] = { 0, 255, 255 };
-int colorYellow[3] = { 255, 255, 0 };
-
-int* colorArray[4] = {colorRed,colorGreen,colorBlue,colorYellow};
-*/
-
 uint32_t colorRed = pixels.Color(255,0,0);
 uint32_t colorGreen = pixels.Color(0,150,0);
 uint32_t colorBlue = pixels.Color(0,255,255);
@@ -42,8 +33,8 @@ int stopBounceTime = 5000; //how much time must pass after bounce to consider it
 unsigned long time_now = 0;
 boolean isBounced = false;
 boolean hasBegunBouncing = false;
-boolean isPatternMatch = false; //when the entire current stage has been matched correctly
-boolean isMatchedSoFar = false; //stays true with each correct color "entry"
+
+int correctCount = 0; //keeps track of how many colors have been guessed correctly so far for the current stage
 
 void setup() {
   Serial.begin(115200);
@@ -66,8 +57,11 @@ void loop() {
 void handlePatternMode(){
   for (int i = 0; i <= curStage; i++) {
     uint32_t curPatternColor = patternArray[i];
-    pixels.setPixelColor(i, curPatternColor);
-    pixels.show();   // Send the updated pixel colors to the hardware.
+    for (int j = 0; j < NUMPIXELS; j++) { // For each pixel...
+      // pixels.Color() takes RGB values, from 0,0,0 up to 255,255,255
+      pixels.setPixelColor(j, curPatternColor);
+      pixels.show();   // Send the updated pixel colors to the hardware.
+    }
     delay(patternColorDisplayTime);
   }
 
@@ -90,32 +84,34 @@ void handleBounceMode(){
   */
 
   if (piezoV > vibrationThreshold && !isBounced) {
-    isBounced = true; //register a bounce
+    Serial.println("bounce");
     for (int i = 0; i < NUMPIXELS; i++) { // For each pixel...
       // pixels.Color() takes RGB values, from 0,0,0 up to 255,255,255
       uint32_t curPixelColor = colorArray[curColorIndex];
       pixels.setPixelColor(i, curPixelColor);
       pixels.show();   // Send the updated pixel colors to the hardware.
     }
+    isBounced = true; //register a bounce
   }
 
-  if (millis() > time_now + bounceTime && isBounced && millis() < time_now + stopBounceTime) {
+  if ((millis() > time_now + bounceTime) && isBounced && (millis() < time_now + stopBounceTime)) { //we have a completed bounce, but not a stop bouncing
+    if (!hasBegunBouncing){
+      Serial.println("has begun bouncing");
+      hasBegunBouncing = true;
+    }
+    Serial.println("bounce");
     time_now = millis();
     pixels.clear();
     pixels.show();
-    isBounced = false;
-    hasBegunBouncing = true;
     if (curColorIndex < 3){
       curColorIndex++;
     } else {
       curColorIndex = 0;
     }
-  } else if (millis() > time_now + stopBounceTime && !isBounced && hasBegunBouncing) {
-    Serial.println("stop");
+    isBounced = false;
+  } else if ((millis() >= time_now + stopBounceTime) && isBounced && hasBegunBouncing) { //we're pausing to see if our submission is correct
+    Serial.println("submit color guess");
     hasBegunBouncing = false;
-    
-    //get current color
-    bool isColorMatch = false;
 
     int lastColorIndex = curColorIndex - 1;
     if (curColorIndex == -1){
@@ -123,19 +119,36 @@ void handleBounceMode(){
     }
 
     
-    if (lastColorIndex == curStage){ //MH - this logic will have to change - currently matches only the latest color, doesn't check if the colors before it were a match
-      Serial.println("correct");
-      isPatternMatch = true;
+    if (colorArray[lastColorIndex] == patternArray[correctCount]){ //if the color we stopped bouncing at matches the stage in the pattern so far
+
+      if (correctCount == curStage){ //we have gotten all the colors in this stage correct
+        if (curStage < 3){
+          Serial.println("correct pattern! Next stage");
+          curStage++; //advance the stage
+        } else {
+          Serial.println("you win!!! Start over");
+          curStage = 0;
+        }
+        
+        curColorIndex = 0;
+        correctCount = 0;
+        isPatternMode = true; //show the next pattern sequence
+      } else { //if there are more colors, we need to keep bouncing to get the next color in the sequence
+        correctCount++;
+        Serial.print("correct so far: ");
+        Serial.println(correctCount);
+      }
+      
+    } else { //wrong color guess, start over:
+      Serial.println("incorrect");
+      curColorIndex = 0;
+      correctCount = 0;
+      isPatternMode = true;
     }
+
+    hasBegunBouncing = false;
+    time_now = millis();
+    isBounced = false;
     
-    if (isPatternMatch){ //if the whole pattern is correct:
-      //curStage++; //MH - temp
-    } else { //else restart the pattern:
-      //MH - not sure theres anything special we need to do here
-    }
-
-
-    //regardless of right or wrong, display the pattern again:
-    isPatternMode = true;
   }
 }
