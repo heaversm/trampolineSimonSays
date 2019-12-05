@@ -19,6 +19,12 @@ uint32_t colorArray[4] = {colorRed, colorGreen, colorBlue, colorYellow};
 
 int curColorIndex = 0; //keeps track of the current color to display
 
+int blinkOnTime = 500; //how long to keep lights lit during blinking
+int blinkOffTime = 500; //how long to keep lights off during blinking
+int finishBlinkPauseTime = 1000; //how long to leave the lights off after all blinks before advancing to next order of operations
+
+
+
 //PATTERN
 
 bool isPatternMode = true; //when true, display patterns, when false, user repeats pattern
@@ -28,8 +34,11 @@ int curStage = 0; //level of the game (array index of patternArray colors to ite
 uint32_t patternArray[4] = {colorRed, colorGreen, colorBlue, colorYellow}; //TODO: randomize this pattern! //array specifying pattern which user will have to replicate. After reaching last color, they win the game
 
 
+
 //PIEZO
 const int PIEZO_PIN = A0; // pin on which we read vibration / piezo output
+
+
 
 //BOUNCE MODE
 int bounceTime = 1000; //how much time must during vibration to constitute a bounce / cycle through colors. Essentially this would be long enough to allow the trampoline to vibrate during a jump, but short enough that it's ready to detect again before the user lands, i.e. "airborne time"
@@ -140,10 +149,7 @@ void handleBounceMode() {
         correctCount = 0;
         isPatternMode = true; //show the next pattern sequence
       } else { //if there are more colors, we need to keep bouncing to get the next color in the sequence
-        correctCount++;
-        curColorIndex = 0;
-        Serial.print("correct so far: ");
-        Serial.println(correctCount);
+        showCorrectSoFar();
       }
 
     } else { //wrong color guess, start over:
@@ -167,9 +173,13 @@ void showStageComplete() {
   curStage++; //then advance to the next stage
 }
 
-int blinkOnTime = 500;
-int blinkOffTime = 500;
-int finishBlinkPauseTime = 1000; //how long to leave the lights off after blinking before advancing to next order of operations
+void showCorrectSoFar(){
+  Serial.print("correct so far: ");
+  Serial.println(correctCount);
+  blinkLights(colorYellow,3);
+  correctCount++;
+  curColorIndex = 0;
+}
 
 void blinkLights(uint32_t blinkColor, int numBlinks) {
   for (int j = 0; j < numBlinks; j++) {
