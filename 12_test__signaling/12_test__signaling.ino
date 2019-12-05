@@ -21,16 +21,15 @@ int curColorIndex = 0; //keeps track of the current color to display
 
 int blinkOnTime = 500; //how long to keep lights lit during blinking
 int blinkOffTime = 500; //how long to keep lights off during blinking
-int finishBlinkPauseTime = 1000; //how long to leave the lights off after all blinks before advancing to next order of operations
-
+int finishBlinkPauseTime = 500; //how long to leave the lights off after all blinks before advancing to next order of operations
+int winOffDelay(3000); //how long to wait after win with the lights off before starting over
 
 
 //PATTERN
-
 bool isPatternMode = true; //when true, display patterns, when false, user repeats pattern
 int patternColorDisplayTime = 3000; //how long to display each color in pattern mode
-int patternCompleteReadyTime = 1000; //how long to give the user after the pattern has been displayed before they can start jumping
-int curStage = 0; //level of the game (array index of patternArray colors to iterate through)
+int patternCompleteReadyTime = 500; //how long to give the user after the pattern has been displayed before they can start jumping
+int curStage = 3; //level of the game (array index of patternArray colors to iterate through)
 uint32_t patternArray[4] = {colorRed, colorGreen, colorBlue, colorYellow}; //TODO: randomize this pattern! //array specifying pattern which user will have to replicate. After reaching last color, they win the game
 
 
@@ -41,8 +40,8 @@ const int PIEZO_PIN = A0; // pin on which we read vibration / piezo output
 
 
 //BOUNCE MODE
-int bounceTime = 1000; //how much time must during vibration to constitute a bounce / cycle through colors. Essentially this would be long enough to allow the trampoline to vibrate during a jump, but short enough that it's ready to detect again before the user lands, i.e. "airborne time"
-int stopBounceTime = 5000; //how much time must pass after bounce to consider it a "submission" of the current color - i.e. how long the user must wait off of the trampoline
+int bounceTime = 750; //how much time must during vibration to constitute a bounce / cycle through colors. Essentially this would be long enough to allow the trampoline to vibrate during a jump, but short enough that it's ready to detect again before the user lands, i.e. "airborne time"
+int stopBounceTime = 3000; //how much time must pass after bounce to consider it a "submission" of the current color - i.e. how long the user must wait off of the trampoline
 unsigned long time_now = 0; //keeps track of the passing of time to constitute a bounce and stop bounce
 boolean isBounced = false; //the user has started a bounce (should occur while each jump is occuring)
 boolean hasBegunBouncing = false; //true when user has triggered vibration for the first time for each color guess
@@ -97,7 +96,6 @@ void handleBounceMode() {
   */
 
   if (piezoV > vibrationThreshold && !isBounced) { //if the vibration is significant enough to constitute a bounce, and we haven't already triggered a bounce...
-    Serial.println("bounce");
 
     time_now = millis();
 
@@ -142,6 +140,9 @@ void handleBounceMode() {
           showStageComplete();
         } else {
           Serial.println("you win!!! Start over");
+          rainbow(5);
+          turnOffLights();
+          delay(winOffDelay);
           curStage = 0;
         }
 
@@ -172,7 +173,7 @@ void showStageComplete() {
 
 void showCorrectSoFar(){
   Serial.print("correct so far: ");
-  Serial.println(correctCount);
+  Serial.println(correctCount+1);
   blinkLights(colorYellow,3);
   correctCount++;
   curColorIndex = 0;
@@ -187,6 +188,13 @@ void showIncorrect(){
   isPatternMode = true;
 }
 
+void turnOffLights(){
+    for (int i = 0; i < NUMPIXELS; i++) { // For each pixel on the strip
+      pixels.clear();
+      pixels.show();
+    }
+}
+
 void blinkLights(uint32_t blinkColor, int numBlinks) {
   for (int j = 0; j < numBlinks; j++) {
     for (int i = 0; i < NUMPIXELS; i++) { // For each pixel on the strip
@@ -199,4 +207,15 @@ void blinkLights(uint32_t blinkColor, int numBlinks) {
     delay(blinkOffTime);
   }
   delay(finishBlinkPauseTime);
+}
+
+void rainbow(int wait) {
+  for(long firstPixelHue = 0; firstPixelHue < 5*65536; firstPixelHue += 256) {
+    for(int i=0; i<NUMPIXELS; i++) { // For each pixel in strip...
+      int pixelHue = firstPixelHue + (i * 65536L / NUMPIXELS);
+      pixels.setPixelColor(i, pixels.gamma32(pixels.ColorHSV(pixelHue)));
+    }
+    pixels.show(); // Update strip with new contents
+    delay(wait);  // Pause for a moment
+  }
 }
