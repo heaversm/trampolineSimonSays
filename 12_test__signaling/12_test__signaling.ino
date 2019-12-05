@@ -153,10 +153,7 @@ void handleBounceMode() {
       }
 
     } else { //wrong color guess, start over:
-      Serial.println("incorrect");
-      curColorIndex = 0;
-      correctCount = 0;
-      isPatternMode = true;
+      showIncorrect();
     }
 
     hasBegunBouncing = false;
@@ -179,6 +176,15 @@ void showCorrectSoFar(){
   blinkLights(colorYellow,3);
   correctCount++;
   curColorIndex = 0;
+}
+
+void showIncorrect(){
+  Serial.println("incorrect");
+  blinkLights(colorRed,3);
+  curColorIndex = 0;
+  correctCount = 0;
+  curStage = 0;
+  isPatternMode = true;
 }
 
 void blinkLights(uint32_t blinkColor, int numBlinks) {
