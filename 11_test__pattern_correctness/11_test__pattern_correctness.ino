@@ -142,6 +142,7 @@ void handleBounceMode(){
         isPatternMode = true; //show the next pattern sequence
       } else { //if there are more colors, we need to keep bouncing to get the next color in the sequence
         correctCount++;
+        curColorIndex = 0;
         Serial.print("correct so far: ");
         Serial.println(correctCount);
       }
