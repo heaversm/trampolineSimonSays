@@ -15,6 +15,7 @@ uint32_t colorBlue = pixels.Color(0, 255, 255);
 uint32_t colorYellow = pixels.Color(255, 255, 0);
 
 //add them to an array in the order we want them to display
+int totalNumColors = 4; //number of colors user can cycle through
 uint32_t colorArray[4] = {colorRed, colorGreen, colorBlue, colorYellow};
 
 int curColorIndex = 0; //keeps track of the current color to display
@@ -26,18 +27,19 @@ int winOffDelay(3000); //how long to wait after win with the lights off before s
 
 
 //PATTERN
+int totalPatternLength = 4; //sets how long we want the game to be in terms of number of colors the user must match
+bool isAssignPatternMode = true; //when true, make a random pattern at startup for the user to duplicate. Then turn this false so it doesn't run again
 bool isPatternMode = true; //when true, display patterns, when false, user repeats pattern
 int patternColorDisplayTime = 3000; //how long to display each color in pattern mode
 int patternColorOffTime = 500; //how long between each color to turn off the lights (helps with distinguishing repeat colors in the pattern the user must reproduce)
 int patternCompleteReadyTime = 500; //how long to give the user after the pattern has been displayed before they can start jumping
-int curStage = 0; //level of the game (array index of patternArray colors to iterate through)
-uint32_t patternArray[4] = {colorArray[random(4)], colorArray[random(4)], colorArray[random(4)], colorArray[random(4)]}; //TODO: randomize this pattern! //array specifying pattern which user will have to replicate. After reaching last color, they win the game
-
+int curStage = 3; //level of the game (array index of patternArray colors to iterate through)
+//uint32_t patternArray[4] = {colorArray[random(4)], colorArray[random(4)], colorArray[random(4)], colorArray[random(4)]}; //TODO: randomize this pattern! //array specifying pattern which user will have to replicate. After reaching last color, they win the game
+uint32_t patternArray[4];
 
 
 //PIEZO
 const int PIEZO_PIN = A0; // pin on which we read vibration / piezo output
-
 
 
 //BOUNCE MODE
@@ -51,20 +53,33 @@ int correctCount = 0; //keeps track of how many colors have been guessed correct
 
 void setup() {
   Serial.begin(115200);
+  randomSeed(analogRead(1)); //allows for truly random values in the pattern
+
   pixels.begin(); // INITIALIZE NeoPixel strip object (REQUIRED)
   pixels.setBrightness(ledBrightness);
   pixels.show(); // Set all pixel colors to 'off'
 }
 
 void loop() {
-
-  if (isPatternMode) {
-    handlePatternMode();
+  if (isAssignPatternMode) { //MH - should run only once
+    assignNewPatternColors();
+    isAssignPatternMode = false;
   } else {
-    handleBounceMode();
+
+    if (isPatternMode) {
+      handlePatternMode();
+    } else {
+      handleBounceMode();
+    }
+
   }
+}
 
-
+void assignNewPatternColors(){
+  for (int i=-0; i<totalPatternLength;i++){
+    int randIndex = random(totalNumColors);
+    patternArray[i] = colorArray[randIndex];
+  }
 }
 
 void handlePatternMode() { //display the pattern the user must replicate
@@ -122,7 +137,7 @@ void handleBounceMode() {
     time_now = millis();
     pixels.clear();
     pixels.show();
-    if (curColorIndex < 3) { //prepare the next color in the sequence to be displayed
+    if (curColorIndex < totalNumColors) { //prepare the next color in the sequence to be displayed
       curColorIndex++;
     } else {
       curColorIndex = 0;
@@ -134,19 +149,20 @@ void handleBounceMode() {
 
     int lastColorIndex = curColorIndex - 1;
     if (lastColorIndex == -1) {
-      lastColorIndex = 3;
+      lastColorIndex = totalNumColors-1;
     }
 
     if (colorArray[lastColorIndex] == patternArray[correctCount]) { //if the color we stopped bouncing at matches the stage in the pattern so far
 
       if (correctCount == curStage) { //we have gotten all the colors in this stage correct
-        if (curStage < 3) {
+        if (curStage < totalPatternLength-1) {
           showStageComplete();
         } else {
           Serial.println("you win!!! Start over");
           rainbow(5);
           turnOffLights();
           delay(winOffDelay);
+          assignNewPatternColors();
           curStage = 0;
         }
 
@@ -175,28 +191,28 @@ void showStageComplete() {
   curStage++; //then advance to the next stage
 }
 
-void showCorrectSoFar(){
+void showCorrectSoFar() {
   Serial.print("correct so far: ");
-  Serial.println(correctCount+1);
-  blinkLights(colorYellow,3);
+  Serial.println(correctCount + 1);
+  blinkLights(colorYellow, 3);
   correctCount++;
   curColorIndex = 0;
 }
 
-void showIncorrect(){
+void showIncorrect() {
   Serial.println("incorrect");
-  blinkLights(colorRed,3);
+  blinkLights(colorRed, 3);
   curColorIndex = 0;
   correctCount = 0;
   curStage = 0;
   isPatternMode = true;
 }
 
-void turnOffLights(){
-    for (int i = 0; i < NUMPIXELS; i++) { // For each pixel on the strip
-      pixels.clear();
-      pixels.show();
-    }
+void turnOffLights() {
+  for (int i = 0; i < NUMPIXELS; i++) { // For each pixel on the strip
+    pixels.clear();
+    pixels.show();
+  }
 }
 
 void blinkLights(uint32_t blinkColor, int numBlinks) {
@@ -214,8 +230,8 @@ void blinkLights(uint32_t blinkColor, int numBlinks) {
 }
 
 void rainbow(int wait) {
-  for(long firstPixelHue = 0; firstPixelHue < 5*65536; firstPixelHue += 256) {
-    for(int i=0; i<NUMPIXELS; i++) { // For each pixel in strip...
+  for (long firstPixelHue = 0; firstPixelHue < 5 * 65536; firstPixelHue += 256) {
+    for (int i = 0; i < NUMPIXELS; i++) { // For each pixel in strip...
       int pixelHue = firstPixelHue + (i * 65536L / NUMPIXELS);
       pixels.setPixelColor(i, pixels.gamma32(pixels.ColorHSV(pixelHue)));
     }
