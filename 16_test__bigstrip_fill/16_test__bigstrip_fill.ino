@@ -33,7 +33,7 @@ bool isPatternMode = true; //when true, display patterns, when false, user repea
 int patternColorDisplayTime = 3000; //how long to display each color in pattern mode
 int patternColorOffTime = 500; //how long between each color to turn off the lights (helps with distinguishing repeat colors in the pattern the user must reproduce)
 int patternCompleteReadyTime = 500; //how long to give the user after the pattern has been displayed before they can start jumping
-int curStage = 0; //level of the game (array index of patternArray colors to iterate through)
+int curStage = 3; //level of the game (array index of patternArray colors to iterate through)
 //uint32_t patternArray[4] = {colorArray[random(4)], colorArray[random(4)], colorArray[random(4)], colorArray[random(4)]}; //TODO: randomize this pattern! //array specifying pattern which user will have to replicate. After reaching last color, they win the game
 uint32_t patternArray[4];
 
@@ -85,11 +85,8 @@ void assignNewPatternColors(){
 void handlePatternMode() { //display the pattern the user must replicate
   for (int i = 0; i <= curStage; i++) {
     uint32_t curPatternColor = patternArray[i];
-    for (int j = 0; j < NUMPIXELS; j++) { // For each pixel...
-
-      pixels.setPixelColor(j, curPatternColor);
-      pixels.show(); //Send the updated pixel colors to the hardware.
-    }
+    pixels.fill(curPatternColor,0,NUMPIXELS);
+    pixels.show();
     delay(patternColorDisplayTime);
     pixels.clear();
     pixels.show();
@@ -118,12 +115,9 @@ void handleBounceMode() {
 
     time_now = millis();
     uint32_t curPixelColor = colorArray[curColorIndex];
-    Serial.println(curPixelColor);
-    for (int i = 0; i < NUMPIXELS; i++) { // For each pixel on the strip
-      //uint32_t curPixelColor = colorArray[curColorIndex];
-      pixels.setPixelColor(i, curPixelColor);
-      pixels.show();   // Send the updated pixel colors to the hardware.
-    }
+    //Serial.println(curPixelColor);
+    pixels.fill(curPixelColor,0,NUMPIXELS);
+    pixels.show();
     isBounced = true; //register a bounce - keeps this block of code (pixel showing) from happening repeatedly
   }
 
@@ -204,7 +198,7 @@ void showIncorrect() {
   blinkLights(colorRed, 3);
   curColorIndex = 0;
   correctCount = 0;
-  curStage = 0;
+  //curStage = 0;
   isPatternMode = true;
 }
 
@@ -213,14 +207,14 @@ void turnOffLights() {
     pixels.clear();
     pixels.show();
   }
+//  pixels.clear();
+//  pixels.show();
 }
 
 void blinkLights(uint32_t blinkColor, int numBlinks) {
   for (int j = 0; j < numBlinks; j++) {
-    for (int i = 0; i < NUMPIXELS; i++) { // For each pixel on the strip
-      pixels.setPixelColor(i, blinkColor);
-      pixels.show(); // Send the updated pixel colors to the hardware.
-    }
+    pixels.fill(blinkColor,0,NUMPIXELS);
+    pixels.show();
     delay(blinkOnTime);
     pixels.clear();
     pixels.show();

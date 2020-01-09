@@ -3,8 +3,10 @@
 
 #define PIN 7 // Which pin on the Arduino is connected to the NeoPixels?
 #define NUMPIXELS 172 //how many lights are on our LED strip?
+
 Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800); //initialize neopixels
 
+int PIXELSPACING = 19; //illuminate 1 of every X pixels on the strip
 int ledBrightness = 30; //0 - 255 - set the overall brightness of our strip
 float vibrationThreshold = 4; //above this value, trigger a bounce
 
@@ -33,7 +35,7 @@ bool isPatternMode = true; //when true, display patterns, when false, user repea
 int patternColorDisplayTime = 3000; //how long to display each color in pattern mode
 int patternColorOffTime = 500; //how long between each color to turn off the lights (helps with distinguishing repeat colors in the pattern the user must reproduce)
 int patternCompleteReadyTime = 500; //how long to give the user after the pattern has been displayed before they can start jumping
-int curStage = 0; //level of the game (array index of patternArray colors to iterate through)
+int curStage = 3; //level of the game (array index of patternArray colors to iterate through)
 //uint32_t patternArray[4] = {colorArray[random(4)], colorArray[random(4)], colorArray[random(4)], colorArray[random(4)]}; //TODO: randomize this pattern! //array specifying pattern which user will have to replicate. After reaching last color, they win the game
 uint32_t patternArray[4];
 
@@ -86,9 +88,11 @@ void handlePatternMode() { //display the pattern the user must replicate
   for (int i = 0; i <= curStage; i++) {
     uint32_t curPatternColor = patternArray[i];
     for (int j = 0; j < NUMPIXELS; j++) { // For each pixel...
-
-      pixels.setPixelColor(j, curPatternColor);
-      pixels.show(); //Send the updated pixel colors to the hardware.
+      if (j % PIXELSPACING == 0){
+        Serial.println(j);
+        pixels.setPixelColor(j, curPatternColor);
+        pixels.show(); //Send the updated pixel colors to the hardware.
+      }
     }
     delay(patternColorDisplayTime);
     pixels.clear();
@@ -118,11 +122,14 @@ void handleBounceMode() {
 
     time_now = millis();
     uint32_t curPixelColor = colorArray[curColorIndex];
-    Serial.println(curPixelColor);
+    
     for (int i = 0; i < NUMPIXELS; i++) { // For each pixel on the strip
+      if (i%PIXELSPACING == 0){
       //uint32_t curPixelColor = colorArray[curColorIndex];
-      pixels.setPixelColor(i, curPixelColor);
-      pixels.show();   // Send the updated pixel colors to the hardware.
+        //Serial.println(curPixelColor);
+        pixels.setPixelColor(i, curPixelColor);
+        pixels.show();   // Send the updated pixel colors to the hardware.
+      }
     }
     isBounced = true; //register a bounce - keeps this block of code (pixel showing) from happening repeatedly
   }
@@ -218,8 +225,10 @@ void turnOffLights() {
 void blinkLights(uint32_t blinkColor, int numBlinks) {
   for (int j = 0; j < numBlinks; j++) {
     for (int i = 0; i < NUMPIXELS; i++) { // For each pixel on the strip
-      pixels.setPixelColor(i, blinkColor);
-      pixels.show(); // Send the updated pixel colors to the hardware.
+      if (i%PIXELSPACING == 0){
+        pixels.setPixelColor(i, blinkColor);
+        pixels.show(); // Send the updated pixel colors to the hardware.
+      }
     }
     delay(blinkOnTime);
     pixels.clear();
@@ -232,8 +241,10 @@ void blinkLights(uint32_t blinkColor, int numBlinks) {
 void rainbow(int wait) {
   for (long firstPixelHue = 0; firstPixelHue < 5 * 65536; firstPixelHue += 256) {
     for (int i = 0; i < NUMPIXELS; i++) { // For each pixel in strip...
-      int pixelHue = firstPixelHue + (i * 65536L / NUMPIXELS);
-      pixels.setPixelColor(i, pixels.gamma32(pixels.ColorHSV(pixelHue)));
+      if (i%PIXELSPACING == 0){
+        int pixelHue = firstPixelHue + (i * 65536L / NUMPIXELS);
+        pixels.setPixelColor(i, pixels.gamma32(pixels.ColorHSV(pixelHue)));
+      }
     }
     pixels.show(); // Update strip with new contents
     delay(wait);  // Pause for a moment

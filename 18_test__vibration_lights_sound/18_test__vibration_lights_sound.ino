@@ -6,7 +6,6 @@
 Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800); //initialize neopixels
 
 int ledBrightness = 30; //0 - 255 - set the overall brightness of our strip
-float vibrationThreshold = 4; //above this value, trigger a bounce
 
 //define the colors we want to cycle through
 uint32_t colorRed = pixels.Color(255, 0, 0);
@@ -30,7 +29,7 @@ int winOffDelay(3000); //how long to wait after win with the lights off before s
 int totalPatternLength = 4; //sets how long we want the game to be in terms of number of colors the user must match
 bool isAssignPatternMode = true; //when true, make a random pattern at startup for the user to duplicate. Then turn this false so it doesn't run again
 bool isPatternMode = true; //when true, display patterns, when false, user repeats pattern
-int patternColorDisplayTime = 3000; //how long to display each color in pattern mode
+int patternColorDisplayTime = 2000; //how long to display each color in pattern mode
 int patternColorOffTime = 500; //how long between each color to turn off the lights (helps with distinguishing repeat colors in the pattern the user must reproduce)
 int patternCompleteReadyTime = 500; //how long to give the user after the pattern has been displayed before they can start jumping
 int curStage = 0; //level of the game (array index of patternArray colors to iterate through)
@@ -42,8 +41,17 @@ uint32_t patternArray[4];
 const int PIEZO_PIN = A0; // pin on which we read vibration / piezo output
 
 
+//SOUNDS
+const int BOUNCE_SOUND_PIN = 8;
+const int WRONG_SOUND_PIN = 4;
+const int COLOR_CORRECT_SOUND_PIN = 5;
+const int PATTERN_CORRECT_SOUND_PIN = 2;
+const int WIN_SOUND_PIN = 3;
+int soundDelay = 200;
+
 //BOUNCE MODE
-int bounceTime = 750; //how much time must during vibration to constitute a bounce / cycle through colors. Essentially this would be long enough to allow the trampoline to vibrate during a jump, but short enough that it's ready to detect again before the user lands, i.e. "airborne time"
+float vibrationThreshold = 3.0; //above this value, trigger a bounces
+int bounceTime = 500; //how much time must during vibration to constitute a bounce / cycle through colors. Essentially this would be long enough to allow the trampoline to vibrate during a jump, but short enough that it's ready to detect again before the user lands, i.e. "airborne time"
 int stopBounceTime = 3000; //how much time must pass after bounce to consider it a "submission" of the current color - i.e. how long the user must wait off of the trampoline
 unsigned long time_now = 0; //keeps track of the passing of time to constitute a bounce and stop bounce
 boolean isBounced = false; //the user has started a bounce (should occur while each jump is occuring)
@@ -52,12 +60,26 @@ boolean hasBegunBouncing = false; //true when user has triggered vibration for t
 int correctCount = 0; //keeps track of how many colors have been guessed correctly so far for the current stage. Set back to zero each stage / level
 
 void setup() {
+  pinMode(BOUNCE_SOUND_PIN,OUTPUT);
+  pinMode(WRONG_SOUND_PIN,OUTPUT);
+  pinMode(COLOR_CORRECT_SOUND_PIN,OUTPUT);
+  pinMode(PATTERN_CORRECT_SOUND_PIN,OUTPUT);
+  pinMode(WIN_SOUND_PIN,OUTPUT);
+  
+  digitalWrite(BOUNCE_SOUND_PIN,HIGH);
+  digitalWrite(WRONG_SOUND_PIN,HIGH);
+  digitalWrite(COLOR_CORRECT_SOUND_PIN,HIGH);
+  digitalWrite(PATTERN_CORRECT_SOUND_PIN,HIGH);
+  digitalWrite(WIN_SOUND_PIN,HIGH);
+
   Serial.begin(115200);
   randomSeed(analogRead(1)); //allows for truly random values in the pattern
 
   pixels.begin(); // INITIALIZE NeoPixel strip object (REQUIRED)
   pixels.setBrightness(ledBrightness);
   pixels.show(); // Set all pixel colors to 'off'
+
+  
 }
 
 void loop() {
@@ -85,11 +107,8 @@ void assignNewPatternColors(){
 void handlePatternMode() { //display the pattern the user must replicate
   for (int i = 0; i <= curStage; i++) {
     uint32_t curPatternColor = patternArray[i];
-    for (int j = 0; j < NUMPIXELS; j++) { // For each pixel...
-
-      pixels.setPixelColor(j, curPatternColor);
-      pixels.show(); //Send the updated pixel colors to the hardware.
-    }
+    pixels.fill(curPatternColor,0,NUMPIXELS);
+    pixels.show();
     delay(patternColorDisplayTime);
     pixels.clear();
     pixels.show();
@@ -118,17 +137,16 @@ void handleBounceMode() {
 
     time_now = millis();
     uint32_t curPixelColor = colorArray[curColorIndex];
-    Serial.println(curPixelColor);
-    for (int i = 0; i < NUMPIXELS; i++) { // For each pixel on the strip
-      //uint32_t curPixelColor = colorArray[curColorIndex];
-      pixels.setPixelColor(i, curPixelColor);
-      pixels.show();   // Send the updated pixel colors to the hardware.
-    }
+    //Serial.println(curPixelColor);
+    pixels.fill(curPixelColor,0,NUMPIXELS);
+    pixels.show();
     isBounced = true; //register a bounce - keeps this block of code (pixel showing) from happening repeatedly
+    digitalWrite(BOUNCE_SOUND_PIN,LOW);
   }
 
   if ((millis() > time_now + bounceTime) && isBounced && (millis() < time_now + stopBounceTime)) { //we have a completed bounce, but not a stop bouncing, i.e. user is airborne
     isBounced = false; //keeps this block from repeating
+    digitalWrite(BOUNCE_SOUND_PIN,HIGH);
     if (!hasBegunBouncing) {
       Serial.println("has begun bouncing");
       hasBegunBouncing = true; //stays true while user is cycling through colors but has not yet submitted a guess
@@ -137,7 +155,7 @@ void handleBounceMode() {
     time_now = millis();
     pixels.clear();
     pixels.show();
-    if (curColorIndex < totalNumColors) { //prepare the next color in the sequence to be displayed
+    if (curColorIndex < totalNumColors-1) { //prepare the next color in the sequence to be displayed
       curColorIndex++;
     } else {
       curColorIndex = 0;
@@ -159,6 +177,9 @@ void handleBounceMode() {
           showStageComplete();
         } else {
           Serial.println("you win!!! Start over");
+          digitalWrite(WIN_SOUND_PIN,LOW);
+          delay(soundDelay);
+          digitalWrite(WIN_SOUND_PIN,HIGH);
           rainbow(5);
           turnOffLights();
           delay(winOffDelay);
@@ -186,25 +207,36 @@ void handleBounceMode() {
 
 void showStageComplete() {
   Serial.println("correct pattern! Next stage");
+  digitalWrite(PATTERN_CORRECT_SOUND_PIN,LOW);
+  delay(soundDelay);
+  digitalWrite(PATTERN_CORRECT_SOUND_PIN,HIGH);
   //signal a correct pattern...
   blinkLights(colorGreen, 3); //color, numBlinks
+  
   curStage++; //then advance to the next stage
 }
 
 void showCorrectSoFar() {
   Serial.print("correct so far: ");
   Serial.println(correctCount + 1);
+  digitalWrite(COLOR_CORRECT_SOUND_PIN,LOW);
+  delay(soundDelay);
+  digitalWrite(COLOR_CORRECT_SOUND_PIN,HIGH);
   blinkLights(colorYellow, 3);
+  
   correctCount++;
   curColorIndex = 0;
 }
 
 void showIncorrect() {
   Serial.println("incorrect");
+  digitalWrite(WRONG_SOUND_PIN,LOW);
+  delay(soundDelay);
+  digitalWrite(WRONG_SOUND_PIN,HIGH);
   blinkLights(colorRed, 3);
   curColorIndex = 0;
   correctCount = 0;
-  curStage = 0;
+  //curStage = 0;
   isPatternMode = true;
 }
 
@@ -213,14 +245,14 @@ void turnOffLights() {
     pixels.clear();
     pixels.show();
   }
+//  pixels.clear();
+//  pixels.show();
 }
 
 void blinkLights(uint32_t blinkColor, int numBlinks) {
   for (int j = 0; j < numBlinks; j++) {
-    for (int i = 0; i < NUMPIXELS; i++) { // For each pixel on the strip
-      pixels.setPixelColor(i, blinkColor);
-      pixels.show(); // Send the updated pixel colors to the hardware.
-    }
+    pixels.fill(blinkColor,0,NUMPIXELS);
+    pixels.show();
     delay(blinkOnTime);
     pixels.clear();
     pixels.show();
