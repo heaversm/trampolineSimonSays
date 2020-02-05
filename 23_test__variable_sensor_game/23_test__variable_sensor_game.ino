@@ -1,22 +1,23 @@
 //LEDS
 #include <Adafruit_NeoPixel.h>
 
-#define PIN 7 // Which pin on the Arduino is connected to the NeoPixels?
+//#define PIN 7 // Which pin on the Arduino is connected to the NeoPixels?
 #define NUMPIXELS 172 //how many lights are on our LED strip?
 //#define NUMPIXELS 9
-Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800); //initialize neopixels
+
+
+uint32_t* colorRed = new uint32_t;
+uint32_t* colorGreen = new uint32_t;
+uint32_t* colorBlue = new uint32_t;
+uint32_t* colorYellow = new uint32_t;
+
 
 int ledBrightness = 30; //0 - 255 - set the overall brightness of our strip
 
-//define the colors we want to cycle through
-uint32_t colorRed = pixels.Color(255, 0, 0);
-uint32_t colorGreen = pixels.Color(0, 150, 0);
-uint32_t colorBlue = pixels.Color(0, 255, 255);
-uint32_t colorYellow = pixels.Color(255, 255, 0);
-
 //add them to an array in the order we want them to display
 int totalNumColors = 4; //number of colors user can cycle through
-uint32_t colorArray[4] = {colorRed, colorGreen, colorBlue, colorYellow};
+uint32_t* totalColorArray = new uint32_t;
+uint32_t* colorArray = new uint32_t[totalNumColors];
 
 int curColorIndex = 0; //keeps track of the current color to display
 
@@ -34,16 +35,21 @@ int patternColorDisplayTime = 2000; //how long to display each color in pattern 
 int patternColorOffTime = 500; //how long between each color to turn off the lights (helps with distinguishing repeat colors in the pattern the user must reproduce)
 int patternCompleteReadyTime = 500; //how long to give the user after the pattern has been displayed before they can start jumping
 int curStage = 0; //level of the game (array index of patternArray colors to iterate through)
-//uint32_t patternArray[4] = {colorArray[random(4)], colorArray[random(4)], colorArray[random(4)], colorArray[random(4)]}; //TODO: randomize this pattern! //array specifying pattern which user will have to replicate. After reaching last color, they win the game
-uint32_t patternArray[4];
+uint32_t* patternArray = new uint32_t[totalPatternLength];
 
 
 //PIEZO
-const int PIEZO_PIN = A0; // pin on which we read vibration / piezo output
-const int PIEZO_PIN1 = A1; // pin on which we read vibration / piezo output
-const int PIEZO_PIN2 = A2; // pin on which we read vibration / piezo output
-const int PIEZO_PIN3 = A3; // pin on which we read vibration / piezo output
-const int piezos[4] = { PIEZO_PIN, PIEZO_PIN1, PIEZO_PIN2, PIEZO_PIN3 };
+const int PIEZO_PIN0 = 9; // pin on which we read vibration / piezo output
+const int PIEZO_PIN1 = 10; // pin on which we read vibration / piezo output
+const int PIEZO_PIN2 = 11; // pin on which we read vibration / piezo output
+const int PIEZO_PIN3 = 12; // pin on which we read vibration / piezo output
+uint32_t totalPiezoArray[4] = {PIEZO_PIN0, PIEZO_PIN1, PIEZO_PIN2, PIEZO_PIN3};
+uint32_t* piezos = new uint32_t[totalNumColors];
+
+Adafruit_NeoPixel pixels0(NUMPIXELS, PIEZO_PIN0, NEO_GRB + NEO_KHZ800); //initialize neopixels
+Adafruit_NeoPixel pixels1(NUMPIXELS, PIEZO_PIN1, NEO_GRB + NEO_KHZ800); //initialize neopixels
+Adafruit_NeoPixel pixels2(NUMPIXELS, PIEZO_PIN2, NEO_GRB + NEO_KHZ800); //initialize neopixels
+Adafruit_NeoPixel pixels3(NUMPIXELS, PIEZO_PIN3, NEO_GRB + NEO_KHZ800); //initialize neopixels
 
 
 //SOUNDS
@@ -64,7 +70,15 @@ boolean hasBegunBouncing = false; //true when user has triggered vibration for t
 
 int correctCount = 0; //keeps track of how many colors have been guessed correctly so far for the current stage. Set back to zero each stage / level
 
+void assignColorArray(){
+  for (int i=0;i<totalNumColors;i++){
+    colorArray[i] = totalColorArray[i];
+    piezos[i] = totalPiezoArray[i];
+  }  
+};
+
 void setup() {
+  assignColorArray();
   pinMode(BOUNCE_SOUND_PIN, OUTPUT);
   pinMode(WRONG_SOUND_PIN, OUTPUT);
   pinMode(COLOR_CORRECT_SOUND_PIN, OUTPUT);

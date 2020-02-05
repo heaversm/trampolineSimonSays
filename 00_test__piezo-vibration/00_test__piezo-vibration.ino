@@ -20,7 +20,7 @@ float THRESHOLD = 3.5;
 
 void setup() 
 {
-  Serial.begin(9600);
+  Serial.begin(115200);
   
 }
 
